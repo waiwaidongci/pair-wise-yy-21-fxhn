@@ -19,6 +19,14 @@ const ROW_TRANSVERSE_POSITION: Record<number, number> = {
   8: 8.4,
 };
 
+export function rowTransversePosition(row: number): number {
+  return ROW_TRANSVERSE_POSITION[row] ?? 0;
+}
+
+export function slotVcg(tier: number, type: Container['type']): number {
+  return 4.15 + (tier - 1) * 2.59 + (type.startsWith('40') ? 1.3 : 0.62);
+}
+
 export function calculateStability(
   placements: Placement[],
   containers: Container[],
@@ -37,10 +45,10 @@ export function calculateStability(
     const container = containerMap.get(placement.containerId);
     const bay = bayMap.get(placement.bayId);
     if (!container || !bay) return;
-    const vcg = 4.15 + (placement.tier - 1) * 2.59 + (container.type.startsWith('40') ? 1.3 : 0.62);
+    const vcg = slotVcg(placement.tier, container.type);
     loadWeight += container.grossWeight;
     longitudinalMoment += container.grossWeight * bay.longitudinalPosition;
-    transverseMoment += container.grossWeight * (ROW_TRANSVERSE_POSITION[placement.row] ?? 0);
+    transverseMoment += container.grossWeight * rowTransversePosition(placement.row);
     verticalMoment += container.grossWeight * vcg;
     if (container.reefer) reeferCount += 1;
   });

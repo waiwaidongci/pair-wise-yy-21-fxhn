@@ -669,8 +669,257 @@ textarea {
 .planner-right {
   display: grid;
   min-height: 0;
-  grid-template-rows: auto minmax(260px, 1fr);
+  grid-template-rows: auto auto minmax(260px, 1fr);
   gap: 8px;
+}
+
+.attribution-panel {
+  display: grid;
+  max-height: 380px;
+  grid-template-rows: 56px minmax(0, 1fr) 24px;
+}
+
+.attribution-list {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 7px;
+  overflow: auto;
+  padding: 8px;
+}
+
+.attribution-footer {
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  border-top: 1px solid var(--line-soft);
+  background: #f7fafc;
+  color: #7e8f9e;
+  font-size: 8px;
+}
+
+.breach-card {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 9px;
+  border: 1px solid #e7c9b5;
+  border-left: 4px solid var(--warning);
+  border-radius: 5px;
+  background: #fffdf8;
+}
+
+.breach-card--danger {
+  border-color: #e7b9b5;
+  border-left-color: var(--danger);
+  background: #fffafa;
+}
+
+.breach-card__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.breach-card__head strong {
+  color: #293f54;
+  font-size: 12px;
+}
+
+.breach-card__value {
+  color: var(--danger);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.breach-card__head .bp5-tag {
+  margin-left: auto;
+}
+
+.breach-section-label {
+  display: block;
+  margin-bottom: 4px;
+  color: #7c8c9c;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.breach-contributors,
+.breach-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.contributor-row {
+  display: grid;
+  width: 100%;
+  align-items: center;
+  grid-template-columns: 16px 1fr auto 64px;
+  gap: 7px;
+  padding: 4px 5px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: #40566b;
+  cursor: pointer;
+  font-size: 9px;
+  text-align: left;
+}
+
+.contributor-row:hover {
+  border-color: #d3e0e9;
+  background: #f2f8fb;
+}
+
+.contributor-row__rank {
+  display: grid;
+  width: 15px;
+  height: 15px;
+  place-items: center;
+  border-radius: 50%;
+  background: #e8eef3;
+  color: #54708a;
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.contributor-row__main {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.contributor-row__main strong {
+  overflow: hidden;
+  color: #2c4b64;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.contributor-row__main span {
+  color: #7d8e9e;
+  font-size: 8px;
+}
+
+.contributor-row__moment {
+  color: #8f4c1d;
+  font-size: 8px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.contributor-row__share {
+  position: relative;
+  height: 12px;
+  border-radius: 2px;
+  background: #eef2f6;
+  color: #47617a;
+  font-size: 8px;
+  line-height: 12px;
+  text-align: right;
+  padding-right: 3px;
+  overflow: hidden;
+}
+
+.contributor-row__share i {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  background: rgba(214, 119, 48, 0.28);
+}
+
+.breach-action {
+  display: grid;
+  align-items: center;
+  grid-template-columns: 1fr auto;
+  gap: 7px;
+  padding: 5px;
+  border: 1px solid #cfe0ea;
+  border-radius: 4px;
+  background: #f4fafc;
+}
+
+.breach-action__route {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #2c4b64;
+  cursor: pointer;
+  text-align: left;
+}
+
+.breach-action__route strong {
+  font-size: 9px;
+}
+
+.breach-action__route span {
+  color: #4e6a82;
+  font-size: 8px;
+}
+
+.breach-action__route em {
+  color: #117a5b;
+  font-size: 8px;
+  font-style: normal;
+}
+
+.breach-queued {
+  color: #8a6a35;
+  font-size: 8px;
+  line-height: 1.5;
+}
+
+.breach-manual {
+  font-size: 9px;
+}
+
+.dialog-blocking {
+  margin-bottom: 12px;
+  padding: 10px;
+  border: 1px solid #e7b9b5;
+  border-left: 4px solid var(--danger);
+  border-radius: 4px;
+  background: #fff6f5;
+}
+
+.dialog-blocking > strong {
+  color: #8f2b24;
+  font-size: 11px;
+}
+
+.dialog-blocking ul {
+  margin: 8px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dialog-blocking li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px dashed #eccfcb;
+  color: #5c4a44;
+  font-size: 10px;
+}
+
+.dialog-blocking li:last-child {
+  border-bottom: 0;
+}
+
+.dialog-blocking .bp5-control {
+  color: #6d4a44;
+  font-size: 10px;
 }
 
 .stability-panel {

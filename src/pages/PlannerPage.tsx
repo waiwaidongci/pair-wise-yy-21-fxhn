@@ -1,5 +1,6 @@
 import {
   Button,
+  Checkbox,
   Dialog,
   Divider,
   EditableText,
@@ -13,12 +14,14 @@ import { BayCanvas } from '../components/BayCanvas';
 import type { BayCanvasHandle } from '../components/BayCanvas';
 import { CargoPool } from '../components/CargoPool';
 import { ConflictList } from '../components/ConflictList';
+import { StabilityAttributionPanel } from '../components/StabilityAttributionPanel';
 import { StabilityDashboard } from '../components/StabilityDashboard';
 import { plannerActions } from '../stores/plannerSlice';
 import { useAppDispatch, useAppSelector } from '../stores/hooks';
-import type { Placement, Slot, StowageConflict } from '../types/shipping';
+import type { Placement, RestowAction, Slot, StowageConflict } from '../types/shipping';
 import { downloadManifest } from '../utils/exporters';
 import { calculateStability } from '../utils/stability';
+import { computeStabilityAttribution } from '../utils/stabilityAttribution';
 import { findAutoStowPlacements } from '../utils/stowage';
 import { validateStowage } from '../utils/stowageRules';
 
@@ -28,6 +31,7 @@ export function PlannerPage() {
   const planner = useAppSelector((state) => state.planner);
   const canvasRef = useRef<BayCanvasHandle>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [manualOverride, setManualOverride] = useState(false);
   const activePlan = planner.plans.find((plan) => plan.id === planner.activePlanId) ?? planner.plans[0];
   const stability = useMemo(
     () =>
@@ -36,12 +40,35 @@ export function PlannerPage() {
         : null,
     [activePlan, planner.containers, planner.bays, planner.vessel],
   );
+  const attribution = useMemo(
+    () =>
+      activePlan
+        ? computeStabilityAttribution(
+            activePlan.placements,
+            planner.containers,
+            planner.bays,
+            planner.vessel,
+            planner.ports,
+          )
+        : null,
+    [activePlan, planner.containers, planner.bays, planner.vessel, planner.ports],
+  );
   const conflicts = useMemo(
     () =>
-      activePlan && stability
-        ? validateStowage(activePlan.placements, planner.containers, planner.bays, planner.ports, stability)
+      activePlan
+        ? validateStowage(
+            activePlan.placements,
+            planner.containers,
+            planner.bays,
+            planner.ports,
+            attribution ?? undefined,
+          )
         : [],
-    [activePlan, planner.containers, planner.bays, planner.ports, stability],
+    [activePlan, planner.containers, planner.bays, planner.ports, attribution],
+  );
+  const blockingBreaches = useMemo(
+    () => attribution?.breaches.filter((breach) => breach.severity === 'danger') ?? [],
+    [attribution],
   );
   const selectedPlacement = useMemo(() => {
     if (!activePlan || !planner.selectedContainerId) return null;
@@ -101,11 +128,38 @@ export function PlannerPage() {
     if (conflict.containerIds[0]) {
       dispatch(plannerActions.selectContainer(conflict.containerIds[0]));
     }
-    dispatch(plannerActions.selectSlot(conflict.slot));
+    if (conflict.slot.bayId > 0) {
+      dispatch(plannerActions.selectSlot(conflict.slot));
+    }
+  }
+
+  function locateSlot(slot: Slot, containerId: string | null) {
+    if (containerId) {
+      dispatch(plannerActions.selectContainer(containerId));
+    }
+    dispatch(plannerActions.selectSlot(slot));
+  }
+
+  function applyRestowAction(action: RestowAction) {
+    dispatch(plannerActions.assignContainer({ containerId: action.containerId, slot: action.to }));
   }
 
   function exportManifest() {
-    downloadManifest(activePlan, planner.containers, planner.ports, stability!);
+    if (!activePlan || !stability) return;
+    downloadManifest(activePlan, planner.containers, planner.ports, stability, attribution ?? undefined);
+  }
+
+  function openConfirmDialog() {
+    setManualOverride(false);
+    setConfirmOpen(true);
+  }
+
+  function confirmActivePlan() {
+    if (!activePlan) return;
+    dispatch(
+      plannerActions.confirmPlan({ planId: activePlan.id, manualOverride }),
+    );
+    setConfirmOpen(false);
   }
 
   const conflictIntent: Intent =
@@ -283,7 +337,7 @@ export function PlannerPage() {
               <Button icon="th" onClick={exportManifest}>
                 导出配载清单
               </Button>
-              <Button intent="primary" icon="endorsed" onClick={() => setConfirmOpen(true)}>
+              <Button intent="primary" icon="endorsed" onClick={openConfirmDialog}>
                 定为最终方案
               </Button>
             </div>
@@ -292,6 +346,14 @@ export function PlannerPage() {
 
         <section className="planner-right">
           <StabilityDashboard stability={stability} />
+          {attribution && attribution.breaches.length > 0 && (
+            <StabilityAttributionPanel
+              attribution={attribution}
+              containers={planner.containers}
+              onApplyAction={applyRestowAction}
+              onLocate={locateSlot}
+            />
+          )}
           <ConflictList
             conflicts={conflicts}
             containers={planner.containers}
@@ -333,6 +395,28 @@ export function PlannerPage() {
               <strong>{conflicts.filter((conflict) => conflict.severity === 'danger').length} 项</strong>
             </div>
           </div>
+          {blockingBreaches.length > 0 && (
+            <div className="dialog-blocking">
+              <strong>以下稳性超限项尚未处理，确认被拦截：</strong>
+              <ul>
+                {blockingBreaches.map((breach) => (
+                  <li key={breach.metric}>
+                    <span>
+                      {breach.label} {breach.value.toFixed(2)} / {breach.limit.toFixed(2)} {breach.unit}
+                    </span>
+                    <Tag minimal intent={breach.status === 'actionable' ? 'primary' : 'warning'}>
+                      {breach.status === 'actionable' ? '有可落地调箱动作' : '待人工处理'}
+                    </Tag>
+                  </li>
+                ))}
+              </ul>
+              <Checkbox
+                checked={manualOverride}
+                onChange={(event) => setManualOverride(event.currentTarget.checked)}
+                label="上述超限项已全部转人工处理，确认放行（处理状态将写入导出清单）"
+              />
+            </div>
+          )}
           {conflicts.some((conflict) => conflict.severity === 'danger') && (
             <div className="dialog-warning">
               当前仍存在严重配载异常。确认后会保留异常记录供后续审核，请确认已获配载主管授权。
@@ -344,12 +428,10 @@ export function PlannerPage() {
           <Button
             intent="primary"
             icon="tick"
-            onClick={() => {
-              dispatch(plannerActions.confirmPlan(activePlan.id));
-              setConfirmOpen(false);
-            }}
+            disabled={blockingBreaches.length > 0 && !manualOverride}
+            onClick={confirmActivePlan}
           >
-            确认最终方案
+            {blockingBreaches.length > 0 ? '人工放行并确认' : '确认最终方案'}
           </Button>
         </div>
       </Dialog>

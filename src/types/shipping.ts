@@ -105,6 +105,44 @@ export interface StabilityIssue {
   message: string;
 }
 
+export type StabilityMetricKey = 'draft' | 'trim' | 'heel' | 'gm';
+
+export interface MetricContribution {
+  containerId: string;
+  slot: Slot;
+  moment: number;
+  share: number;
+}
+
+export interface RestowAction {
+  id: string;
+  containerId: string;
+  from: Slot;
+  to: Slot;
+  metricAfter: number;
+  impact: number;
+}
+
+export interface StabilityBreach {
+  metric: StabilityMetricKey;
+  severity: 'warning' | 'danger';
+  label: string;
+  value: number;
+  limit: number;
+  unit: string;
+  topContributors: MetricContribution[];
+  actions: RestowAction[];
+  queued: MetricContribution[];
+  status: 'actionable' | 'manual';
+  manualReason?: string;
+}
+
+export interface StabilityAttribution {
+  fingerprint: string;
+  computedAt: string;
+  breaches: StabilityBreach[];
+}
+
 export type StowageConflictType = 'overweight' | 'wrong-port' | 'top-heavy' | 'segregation' | 'stack-limit' | 'stability';
 
 export interface StowageConflict {

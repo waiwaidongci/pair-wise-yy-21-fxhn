@@ -2,6 +2,7 @@ import { createSlice, nanoid } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import type { PlannerState, Placement, Slot, StowagePlan } from '../types/shipping';
 import { BAYS, CONTAINERS, createInitialPlans, PORTS, VESSEL } from '../utils/mockData';
+import { calculateStability } from '../utils/stability';
 
 const initialPlans = createInitialPlans();
 
@@ -108,15 +109,24 @@ export const plannerSlice = createSlice({
       plan.name = action.payload.name.trim() || plan.name;
       plan.updatedAt = new Date().toISOString();
     },
-    confirmPlan(state, action: PayloadAction<string>) {
-      const plan = state.plans.find((candidate) => candidate.id === action.payload);
+    confirmPlan(state, action: PayloadAction<{ planId: string; manualOverride?: boolean }>) {
+      const plan = state.plans.find((candidate) => candidate.id === action.payload.planId);
       if (!plan) return;
+      const stability = calculateStability(plan.placements, state.containers, state.bays, state.vessel);
+      const blocking = stability.issues.filter((issue) => issue.severity === 'danger');
+      if (blocking.length > 0 && !action.payload.manualOverride) {
+        state.notice = `确认被拦截：${blocking.map((issue) => issue.message).join('；')}。请先按归因面板调箱，或逐项转人工后放行。`;
+        return;
+      }
       pushHistory(state);
       state.plans = state.plans.map((candidate) => ({
         ...candidate,
-        status: candidate.id === action.payload ? 'final' : candidate.status === 'final' ? 'trial' : candidate.status,
+        status: candidate.id === action.payload.planId ? 'final' : candidate.status === 'final' ? 'trial' : candidate.status,
       }));
-      state.notice = `${plan.name} 已确认为最终配载方案`;
+      state.notice =
+        blocking.length > 0
+          ? `${plan.name} 已确认为最终方案（含 ${blocking.length} 项转人工处理的稳性超限，已写入清单）`
+          : `${plan.name} 已确认为最终配载方案`;
     },
     setHighlightedConflict(state, action: PayloadAction<string | null>) {
       state.highlightedConflictId = action.payload;

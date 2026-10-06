@@ -4,7 +4,7 @@ import type {
   Placement,
   Port,
   Slot,
-  StabilityResult,
+  StabilityAttribution,
   StowageConflict,
 } from '../types/shipping';
 
@@ -23,7 +23,7 @@ export function validateStowage(
   containers: Container[],
   bays: Bay[],
   ports: Port[],
-  stability: StabilityResult,
+  attribution?: StabilityAttribution,
 ): StowageConflict[] {
   const conflicts: StowageConflict[] = [];
   const containerMap = new Map(containers.map((container) => [container.id, container]));
@@ -150,20 +150,30 @@ export function validateStowage(
     }
   }
 
-  if (stability.status === 'danger') {
-    const dangerIssue = stability.issues.find((issue) => issue.severity === 'danger');
-    if (dangerIssue) {
+  if (attribution) {
+    attribution.breaches.forEach((breach) => {
+      if (breach.severity !== 'danger') return;
+      const top = breach.topContributors[0];
+      const topContainer = top ? containerMap.get(top.containerId) : undefined;
+      const firstAction = breach.actions[0];
+      const actionContainer = firstAction ? containerMap.get(firstAction.containerId) : undefined;
       conflicts.push({
-        id: `stability:${dangerIssue.metric}`,
+        id: `stability:${breach.metric}`,
         type: 'stability',
         severity: 'danger',
-        slot: { bayId: 2, row: 1, tier: 1 },
-        containerIds: [],
-        title: `稳性指标异常：${dangerIssue.metric.toUpperCase()}`,
-        detail: dangerIssue.message,
-        suggestion: '先暂停新增装载，按稳性面板提示调整重量纵向或横向分布。',
+        slot: top?.slot ?? { bayId: 0, row: 0, tier: 0 },
+        containerIds: breach.topContributors.slice(0, 3).map((entry) => entry.containerId),
+        title: `稳性超限：${breach.label} ${breach.value.toFixed(2)}${breach.unit}（限值 ${breach.limit.toFixed(2)}${breach.unit}）`,
+        detail:
+          top && topContainer
+            ? `最大贡献箱 ${topContainer.number}（贝 ${top.slot.bayId}/${String(top.slot.row).padStart(2, '0')}/${top.slot.tier}），力矩 ${top.moment.toFixed(1)} t·m，占同向贡献 ${(top.share * 100).toFixed(0)}%。`
+            : (breach.manualReason ?? '该超限项无法通过箱级力矩归因。'),
+        suggestion:
+          firstAction && actionContainer
+            ? `可将 ${actionContainer.number} 移至贝 ${firstAction.to.bayId}/${String(firstAction.to.row).padStart(2, '0')}/${firstAction.to.tier}，调后${breach.label} ${firstAction.metricAfter.toFixed(2)}${breach.unit}。`
+            : `待人工处理：${breach.manualReason ?? '暂无合规调箱落点'}`,
       });
-    }
+    });
   }
 
   return dedupeConflicts(conflicts);

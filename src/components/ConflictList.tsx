@@ -59,7 +59,9 @@ export function ConflictList({
                 {conflictLabel(conflict.type)}
               </Tag>
               <span>
-                贝 {conflict.slot.bayId} / {String(conflict.slot.row).padStart(2, '0')} / {conflict.slot.tier}
+                {conflict.slot.bayId === 0
+                  ? '全船'
+                  : `贝 ${conflict.slot.bayId} / ${String(conflict.slot.row).padStart(2, '0')} / ${conflict.slot.tier}`}
               </span>
             </span>
             <strong>{conflict.title}</strong>

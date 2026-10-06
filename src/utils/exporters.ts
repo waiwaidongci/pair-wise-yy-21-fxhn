@@ -1,4 +1,11 @@
-import type { Container, Placement, Port, StowagePlan, StabilityResult } from '../types/shipping';
+import type {
+  Container,
+  Placement,
+  Port,
+  StowagePlan,
+  StabilityAttribution,
+  StabilityResult,
+} from '../types/shipping';
 
 export function downloadPlanPng(canvas: HTMLCanvasElement, plan: StowagePlan): void {
   const link = document.createElement('a');
@@ -12,6 +19,7 @@ export function downloadManifest(
   containers: Container[],
   ports: Port[],
   stability: StabilityResult,
+  attribution?: StabilityAttribution,
 ): void {
   const containerMap = new Map(containers.map((container) => [container.id, container]));
   const portMap = new Map(ports.map((port) => [port.code, port]));
@@ -64,7 +72,7 @@ export function downloadManifest(
     ['横倾(°)', stability.heel.toFixed(3)],
     ['GM(m)', stability.gm.toFixed(3)],
   ];
-  const csv = [header, ...csvRows, ...summary]
+  const csv = [header, ...csvRows, ...summary, ...attributionRows(attribution, containers)]
     .map((row) => row.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(','))
     .join('\n');
   const blob = new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8' });
@@ -73,4 +81,46 @@ export function downloadManifest(
   link.download = `${plan.name.replaceAll(' ', '_')}_配载清单.csv`;
   link.click();
   URL.revokeObjectURL(link.href);
+}
+
+function attributionRows(
+  attribution: StabilityAttribution | undefined,
+  containers: Container[],
+): Array<Array<string | number>> {
+  if (!attribution) return [];
+  const containerMap = new Map(containers.map((container) => [container.id, container]));
+  const rows: Array<Array<string | number>> = [
+    [],
+    [`稳性超限归因（指纹 ${attribution.fingerprint} · ${new Date(attribution.computedAt).toLocaleString('zh-CN')} 计算）`],
+    ['指标', '当前值', '限值', '处理状态', '主要贡献箱（箱号@格位=力矩/占比）', '建议调箱动作', '待人工原因'],
+  ];
+  if (attribution.breaches.length === 0) {
+    rows.push(['无超限项', '', '', '已满足全部稳性限值', '', '', '']);
+    return rows;
+  }
+  attribution.breaches.forEach((breach) => {
+    const contributors = breach.topContributors
+      .slice(0, 3)
+      .map((entry) => {
+        const container = containerMap.get(entry.containerId);
+        return `${container?.number ?? entry.containerId}@B${entry.slot.bayId}/${String(entry.slot.row).padStart(2, '0')}/${entry.slot.tier}=${entry.moment >= 0 ? '+' : ''}${entry.moment.toFixed(1)}t·m(${(entry.share * 100).toFixed(0)}%)`;
+      })
+      .join('；');
+    const actions = breach.actions
+      .map((action) => {
+        const container = containerMap.get(action.containerId);
+        return `${container?.number ?? action.containerId} B${action.from.bayId}/${String(action.from.row).padStart(2, '0')}/${action.from.tier}→B${action.to.bayId}/${String(action.to.row).padStart(2, '0')}/${action.to.tier}（调后${action.metricAfter.toFixed(2)}${breach.unit}）`;
+      })
+      .join('；');
+    rows.push([
+      breach.label,
+      `${breach.value.toFixed(2)} ${breach.unit}`,
+      `${breach.limit.toFixed(2)} ${breach.unit}`,
+      breach.status === 'actionable' ? `可落地调箱 ${breach.actions.length} 条` : '待人工处理',
+      contributors,
+      actions,
+      breach.status === 'manual' ? (breach.manualReason ?? '') : '',
+    ]);
+  });
+  return rows;
 }

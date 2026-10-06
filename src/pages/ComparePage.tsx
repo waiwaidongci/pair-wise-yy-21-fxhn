@@ -1,10 +1,11 @@
-import { Button, Callout, Divider, ProgressBar, Tag } from '@blueprintjs/core';
+import { Button, Callout, Divider, ProgressBar, Tag, Tooltip } from '@blueprintjs/core';
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { plannerActions } from '../stores/plannerSlice';
 import { useAppDispatch, useAppSelector } from '../stores/hooks';
 import { downloadManifest } from '../utils/exporters';
 import { calculateStability } from '../utils/stability';
+import { computeStabilityAttribution } from '../utils/stabilityAttribution';
 import { validateStowage } from '../utils/stowageRules';
 
 export function ComparePage() {
@@ -15,14 +16,21 @@ export function ComparePage() {
     () =>
       planner.plans.map((plan) => {
         const stability = calculateStability(plan.placements, planner.containers, planner.bays, planner.vessel);
+        const attribution = computeStabilityAttribution(
+          plan.placements,
+          planner.containers,
+          planner.bays,
+          planner.vessel,
+          planner.ports,
+        );
         const conflicts = validateStowage(
           plan.placements,
           planner.containers,
           planner.bays,
           planner.ports,
-          stability,
+          attribution,
         );
-        return { plan, stability, conflicts };
+        return { plan, stability, attribution, conflicts };
       }),
     [planner],
   );
@@ -57,7 +65,11 @@ export function ComparePage() {
           <thead>
             <tr>
               <th>指标 / 方案</th>
-              {rows.map(({ plan, stability, conflicts }) => (
+              {rows.map(({ plan, stability, attribution, conflicts }) => {
+                const blockingCount = attribution.breaches.filter(
+                  (breach) => breach.severity === 'danger',
+                ).length;
+                return (
                 <th key={plan.id} className={plan.id === planner.activePlanId ? 'is-active' : ''}>
                   <div>
                     <Tag minimal intent={plan.status === 'final' ? 'success' : 'none'}>
@@ -83,27 +95,37 @@ export function ComparePage() {
                       minimal
                       icon="download"
                       onClick={() =>
-                        downloadManifest(plan, planner.containers, planner.ports, stability)
+                        downloadManifest(plan, planner.containers, planner.ports, stability, attribution)
                       }
                     >
                       清单
                     </Button>
-                    <Button
-                      small
-                      minimal
-                      intent={plan.status === 'final' ? 'success' : 'none'}
-                      icon="endorsed"
-                      disabled={plan.status === 'final'}
-                      onClick={() => dispatch(plannerActions.confirmPlan(plan.id))}
+                    <Tooltip
+                      compact
+                      disabled={blockingCount === 0}
+                      content={`存在 ${blockingCount} 项未处理的稳性超限，请回到配载页按归因处理或转人工放行`}
                     >
-                      确认
-                    </Button>
+                      <Button
+                        small
+                        minimal
+                        intent={plan.status === 'final' ? 'success' : 'none'}
+                        icon="endorsed"
+                        disabled={plan.status === 'final' || blockingCount > 0}
+                        onClick={() => dispatch(plannerActions.confirmPlan({ planId: plan.id }))}
+                      >
+                        确认
+                      </Button>
+                    </Tooltip>
                   </div>
                   {conflicts.some((conflict) => conflict.severity === 'danger') && (
                     <span className="compare-risk">存在严重异常</span>
                   )}
+                  {blockingCount > 0 && (
+                    <span className="compare-risk">{blockingCount} 项稳性超限待处理</span>
+                  )}
                 </th>
-              ))}
+                );
+              })}
             </tr>
           </thead>
           <tbody>
