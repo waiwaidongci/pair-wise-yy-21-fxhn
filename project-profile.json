@@ -1,0 +1,11 @@
+{
+  "projectId": "pair-wise-yy-21",
+  "projectName": "船舶配载图与稳性校核编辑器",
+  "category": "航运调度",
+  "businessDomain": "船舶配载",
+  "projectForm": "完整项目",
+  "codeScope": "frontend",
+  "languages": "React, TypeScript, Vite, Blueprint, Redux Toolkit, React Router",
+  "summary": "面向船舶配载员的贝位配载与稳性计算工具，支持集装箱分配、隔离与堆叠校验、多方案对比、撤销重做、配载图及配载清单导出。",
+  "containerized": false
+}
