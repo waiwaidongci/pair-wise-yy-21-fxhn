@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { plannerActions } from '../stores/plannerSlice';
 import { useAppDispatch, useAppSelector } from '../stores/hooks';
+import { buildAttribution } from '../utils/stabilityAttribution';
 import { downloadManifest } from '../utils/exporters';
 import { calculateStability } from '../utils/stability';
 import { validateStowage } from '../utils/stowageRules';
@@ -20,9 +21,17 @@ export function ComparePage() {
           planner.containers,
           planner.bays,
           planner.ports,
-          stability,
         );
-        return { plan, stability, conflicts };
+        const attribution = buildAttribution(
+          plan.placements,
+          planner.containers,
+          planner.bays,
+          planner.ports,
+          planner.vessel,
+          stability,
+          plan.manualOverrides ?? [],
+        );
+        return { plan, stability, conflicts, attribution };
       }),
     [planner],
   );
@@ -57,7 +66,7 @@ export function ComparePage() {
           <thead>
             <tr>
               <th>指标 / 方案</th>
-              {rows.map(({ plan, stability, conflicts }) => (
+              {rows.map(({ plan, stability, conflicts, attribution }) => (
                 <th key={plan.id} className={plan.id === planner.activePlanId ? 'is-active' : ''}>
                   <div>
                     <Tag minimal intent={plan.status === 'final' ? 'success' : 'none'}>
@@ -83,7 +92,7 @@ export function ComparePage() {
                       minimal
                       icon="download"
                       onClick={() =>
-                        downloadManifest(plan, planner.containers, planner.ports, stability)
+                        downloadManifest(plan, planner.containers, planner.ports, stability, attribution)
                       }
                     >
                       清单
@@ -93,15 +102,20 @@ export function ComparePage() {
                       minimal
                       intent={plan.status === 'final' ? 'success' : 'none'}
                       icon="endorsed"
-                      disabled={plan.status === 'final'}
+                      disabled={plan.status === 'final' || attribution.hasDanger}
+                      title={attribution.hasDanger ? '存在未处理的稳性超限项' : undefined}
                       onClick={() => dispatch(plannerActions.confirmPlan(plan.id))}
                     >
                       确认
                     </Button>
                   </div>
-                  {conflicts.some((conflict) => conflict.severity === 'danger') && (
+                  {attribution.hasDanger ? (
+                    <span className="compare-risk">
+                      {attribution.unhandledDanger.length} 项稳性超限未处理
+                    </span>
+                  ) : conflicts.some((conflict) => conflict.severity === 'danger') ? (
                     <span className="compare-risk">存在严重异常</span>
-                  )}
+                  ) : null}
                 </th>
               ))}
             </tr>
@@ -133,6 +147,18 @@ export function ComparePage() {
             <CompareRow
               label="GM"
               values={rows.map(({ stability }) => `${stability.gm.toFixed(3)} m`)}
+            />
+            <CompareRow
+              label="稳性超限未处理"
+              values={rows.map(
+                ({ attribution }) =>
+                  `${attribution.unhandledDanger.length} 项${
+                    attribution.metrics.trim.manual || attribution.metrics.heel.manual || attribution.metrics.gm.manual
+                      ? '（含待人工处理）'
+                      : ''
+                  }`,
+              )}
+              danger={rows.map(({ attribution }) => attribution.unhandledDanger.length > 0)}
             />
             <CompareRow
               label="KG / KM"

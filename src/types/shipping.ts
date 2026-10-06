@@ -1,6 +1,7 @@
 export type ContainerType = '20GP' | '40GP' | '40HQ' | '20RF';
 export type HazardClass = 'none' | '1.1' | '2.1' | '3' | '4.1' | '5.1' | '6.1' | '8';
 export type PlanStatus = 'trial' | 'final';
+export type StabilityMetricKey = 'trim' | 'heel' | 'gm';
 
 export interface Port {
   code: string;
@@ -53,6 +54,7 @@ export interface StowagePlan {
   createdAt: string;
   updatedAt: string;
   placements: Placement[];
+  manualOverrides?: StabilityMetricKey[];
 }
 
 export interface VesselSpec {

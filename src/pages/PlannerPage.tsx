@@ -1,5 +1,6 @@
 import {
   Button,
+  Callout,
   Dialog,
   Divider,
   EditableText,
@@ -13,12 +14,15 @@ import { BayCanvas } from '../components/BayCanvas';
 import type { BayCanvasHandle } from '../components/BayCanvas';
 import { CargoPool } from '../components/CargoPool';
 import { ConflictList } from '../components/ConflictList';
+import { StabilityAttributionPanel } from '../components/StabilityAttributionPanel';
 import { StabilityDashboard } from '../components/StabilityDashboard';
 import { plannerActions } from '../stores/plannerSlice';
 import { useAppDispatch, useAppSelector } from '../stores/hooks';
-import type { Placement, Slot, StowageConflict } from '../types/shipping';
+import { useStabilityAttribution } from '../stores/useStabilityAttribution';
+import type { Placement, Slot, StabilityMetricKey, StowageConflict } from '../types/shipping';
 import { downloadManifest } from '../utils/exporters';
 import { calculateStability } from '../utils/stability';
+import { attributionConflicts } from '../utils/stabilityAttribution';
 import { findAutoStowPlacements } from '../utils/stowage';
 import { validateStowage } from '../utils/stowageRules';
 
@@ -36,12 +40,21 @@ export function PlannerPage() {
         : null,
     [activePlan, planner.containers, planner.bays, planner.vessel],
   );
-  const conflicts = useMemo(
+  const attribution = useStabilityAttribution(activePlan, planner.containers, planner.bays, planner.ports, planner.vessel);
+  const ruleConflicts = useMemo(
     () =>
       activePlan && stability
-        ? validateStowage(activePlan.placements, planner.containers, planner.bays, planner.ports, stability)
+        ? validateStowage(activePlan.placements, planner.containers, planner.bays, planner.ports)
         : [],
     [activePlan, planner.containers, planner.bays, planner.ports, stability],
+  );
+  const stabilityConflicts = useMemo(
+    () => (attribution ? attributionConflicts(attribution) : []),
+    [attribution],
+  );
+  const conflicts = useMemo(
+    () => [...ruleConflicts, ...stabilityConflicts],
+    [ruleConflicts, stabilityConflicts],
   );
   const selectedPlacement = useMemo(() => {
     if (!activePlan || !planner.selectedContainerId) return null;
@@ -104,8 +117,22 @@ export function PlannerPage() {
     dispatch(plannerActions.selectSlot(conflict.slot));
   }
 
+  function applyAttributionMove(containerId: string, to: Slot) {
+    dispatch(plannerActions.assignContainer({ containerId, slot: to }));
+  }
+
+  function toggleManual(metric: StabilityMetricKey, manual: boolean) {
+    if (!activePlan) return;
+    dispatch(plannerActions.setManualOverride({ planId: activePlan.id, metric, manual }));
+  }
+
+  function locateContainer(containerId: string, slot: Slot) {
+    dispatch(plannerActions.selectContainer(containerId));
+    dispatch(plannerActions.selectSlot(slot));
+  }
+
   function exportManifest() {
-    downloadManifest(activePlan, planner.containers, planner.ports, stability!);
+    downloadManifest(activePlan, planner.containers, planner.ports, stability!, attribution);
   }
 
   const conflictIntent: Intent =
@@ -292,6 +319,15 @@ export function PlannerPage() {
 
         <section className="planner-right">
           <StabilityDashboard stability={stability} />
+          {attribution && (
+            <StabilityAttributionPanel
+              attribution={attribution}
+              containers={planner.containers}
+              onApplyMove={applyAttributionMove}
+              onToggleManual={toggleManual}
+              onLocate={locateContainer}
+            />
+          )}
           <ConflictList
             conflicts={conflicts}
             containers={planner.containers}
@@ -333,10 +369,12 @@ export function PlannerPage() {
               <strong>{conflicts.filter((conflict) => conflict.severity === 'danger').length} 项</strong>
             </div>
           </div>
-          {conflicts.some((conflict) => conflict.severity === 'danger') && (
-            <div className="dialog-warning">
-              当前仍存在严重配载异常。确认后会保留异常记录供后续审核，请确认已获配载主管授权。
-            </div>
+          {attribution?.hasDanger && (
+            <Callout intent="danger" icon="warning-sign" className="dialog-warning">
+              当前仍有 {attribution.unhandledDanger.length} 项稳性超限未处理
+              （{attribution.unhandledDanger.map((m) => attribution.metrics[m].label).join('、')}）。
+              请按归因面板调整箱量，或标记待人工处理后再确认。
+            </Callout>
           )}
         </div>
         <div className="dialog-footer">
@@ -344,6 +382,7 @@ export function PlannerPage() {
           <Button
             intent="primary"
             icon="tick"
+            disabled={attribution?.hasDanger}
             onClick={() => {
               dispatch(plannerActions.confirmPlan(activePlan.id));
               setConfirmOpen(false);

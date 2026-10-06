@@ -1,6 +1,6 @@
 import { createSlice, nanoid } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
-import type { PlannerState, Placement, Slot, StowagePlan } from '../types/shipping';
+import type { PlannerState, Placement, Slot, StabilityMetricKey, StowagePlan } from '../types/shipping';
 import { BAYS, CONTAINERS, createInitialPlans, PORTS, VESSEL } from '../utils/mockData';
 
 const initialPlans = createInitialPlans();
@@ -120,6 +120,21 @@ export const plannerSlice = createSlice({
     },
     setHighlightedConflict(state, action: PayloadAction<string | null>) {
       state.highlightedConflictId = action.payload;
+    },
+    setManualOverride(
+      state,
+      action: PayloadAction<{ planId: string; metric: StabilityMetricKey; manual: boolean }>,
+    ) {
+      const plan = state.plans.find((candidate) => candidate.id === action.payload.planId);
+      if (!plan) return;
+      const current = plan.manualOverrides ?? [];
+      plan.manualOverrides = action.payload.manual
+        ? Array.from(new Set([...current, action.payload.metric]))
+        : current.filter((metric) => metric !== action.payload.metric);
+      plan.updatedAt = new Date().toISOString();
+      state.notice = action.payload.manual
+        ? '已标记待人工处理，配载清单将记录该状态'
+        : '已撤销待人工处理标记';
     },
     setNotice(state, action: PayloadAction<string | null>) {
       state.notice = action.payload;

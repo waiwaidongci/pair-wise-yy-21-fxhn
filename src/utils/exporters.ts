@@ -1,4 +1,5 @@
 import type { Container, Placement, Port, StowagePlan, StabilityResult } from '../types/shipping';
+import type { StabilityAttribution } from './stabilityAttribution';
 
 export function downloadPlanPng(canvas: HTMLCanvasElement, plan: StowagePlan): void {
   const link = document.createElement('a');
@@ -12,6 +13,7 @@ export function downloadManifest(
   containers: Container[],
   ports: Port[],
   stability: StabilityResult,
+  attribution: StabilityAttribution | null,
 ): void {
   const containerMap = new Map(containers.map((container) => [container.id, container]));
   const portMap = new Map(ports.map((port) => [port.code, port]));
@@ -64,7 +66,8 @@ export function downloadManifest(
     ['横倾(°)', stability.heel.toFixed(3)],
     ['GM(m)', stability.gm.toFixed(3)],
   ];
-  const csv = [header, ...csvRows, ...summary]
+  const attributionRows = attribution ? buildAttributionRows(attribution) : [];
+  const csv = [header, ...csvRows, ...summary, ...attributionRows]
     .map((row) => row.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(','))
     .join('\n');
   const blob = new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8' });
@@ -73,4 +76,57 @@ export function downloadManifest(
   link.download = `${plan.name.replaceAll(' ', '_')}_配载清单.csv`;
   link.click();
   URL.revokeObjectURL(link.href);
+}
+
+function buildAttributionRows(attribution: StabilityAttribution): string[][] {
+  const rows: string[][] = [
+    [],
+    ['稳性归因与处理'],
+    ['指标', '当前值', '限值', '状态', '主因箱(贡献)', '建议动作', '处理状态'],
+  ];
+  (['trim', 'heel', 'gm'] as const).forEach((key) => {
+    const metric = attribution.metrics[key];
+    const status = metric.manual
+      ? '待人工处理'
+      : metric.exceeded
+        ? '超限未处理'
+        : metric.nearLimit
+          ? '接近限值'
+          : '正常';
+    const driverText = metric.drivers[0]
+      ? `${metric.drivers[0].containerNumber}(${momentLabel(metric, metric.drivers[0])})`
+      : '—';
+    const action = metric.manual
+      ? '需人工统筹'
+      : metric.bestMove
+        ? `移 ${metric.bestMove.containerNumber} 至 贝${metric.bestMove.to.bayId}/${String(metric.bestMove.to.row).padStart(2, '0')}排/${metric.bestMove.to.tier}层`
+        : metric.exceeded
+          ? '无可行自动调箱动作'
+          : '—';
+    rows.push([
+      metric.label,
+      metric.value.toFixed(metric.unit === '°' ? 2 : 3),
+      metric.limit.toFixed(metric.unit === '°' ? 2 : 3),
+      status,
+      driverText,
+      action,
+      metric.manual ? '待人工处理' : metric.exceeded ? '未处理' : '已正常',
+    ]);
+  });
+  rows.push([]);
+  rows.push([
+    '汇总',
+    `未处理超限 ${attribution.unhandledDanger.length} 项`,
+    `待人工处理 ${(['trim', 'heel', 'gm'] as const).filter((k) => attribution.metrics[k].manual).length} 项`,
+  ]);
+  return rows;
+}
+
+function momentLabel(
+  metric: { metric: string },
+  driver: { trimMoment: number; heelMoment: number; vertical: number },
+): string {
+  if (metric.metric === 'trim') return `${driver.trimMoment.toFixed(0)}t·m`;
+  if (metric.metric === 'heel') return `${driver.heelMoment.toFixed(0)}t·m`;
+  return `${driver.vertical.toFixed(0)}t·m`;
 }

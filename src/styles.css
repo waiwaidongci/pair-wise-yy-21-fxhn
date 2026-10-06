@@ -669,7 +669,7 @@ textarea {
 .planner-right {
   display: grid;
   min-height: 0;
-  grid-template-rows: auto minmax(260px, 1fr);
+  grid-template-rows: auto auto minmax(260px, 1fr);
   gap: 8px;
 }
 
@@ -1223,4 +1223,254 @@ textarea {
   .metric-card strong {
     font-size: 17px;
   }
+}
+
+/* ===== 超限归因与处理面板 ===== */
+.attribution-panel {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.attribution-list {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 6px;
+  overflow: auto;
+  padding: 8px;
+}
+
+.metric-card-v2 {
+  border: 1px solid #d5e0e8;
+  border-left: 4px solid #9aa9b7;
+  border-radius: 5px;
+  background: #fff;
+}
+
+.metric-card-v2--danger {
+  border-color: #e7b9b5;
+  border-left-color: var(--danger);
+  background: #fffafa;
+}
+
+.metric-card-v2--warning {
+  border-color: #e5d4a1;
+  border-left-color: var(--warning);
+  background: #fffdf6;
+}
+
+.metric-card-v2--success {
+  border-color: #bfe0d2;
+  border-left-color: var(--success);
+  background: #f7fdfa;
+}
+
+.metric-card-v2__head {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.metric-card-v2__title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.metric-card-v2__title strong {
+  color: #183b58;
+  font-size: 12px;
+}
+
+.metric-card-v2__value {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  color: #6e8295;
+  font-size: 10px;
+}
+
+.metric-card-v2__value strong {
+  color: #183b58;
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+.metric-card-v2__value strong.text-danger {
+  color: var(--danger);
+}
+
+.metric-card-v2__body {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 0 10px 9px;
+}
+
+.metric-card-v2__callout {
+  margin: 0;
+}
+
+.driver-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.driver-list__label {
+  color: #7c8c9c;
+  font-size: 9px;
+}
+
+.driver-list__empty {
+  color: #9aa9b7;
+  font-size: 9px;
+}
+
+.driver-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 90px 64px;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 6px;
+  border: 1px solid #e0e8ef;
+  border-radius: 4px;
+  background: #f8fbfd;
+  cursor: pointer;
+  text-align: left;
+}
+
+.driver-row:hover {
+  border-color: #1676a7;
+  background: #eef6fb;
+}
+
+.driver-row__main {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.driver-row__main strong {
+  color: #293f54;
+  font-size: 11px;
+}
+
+.driver-row__main small {
+  color: #7c8c9c;
+  font-size: 8px;
+}
+
+.driver-row__bar {
+  height: 5px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: #e6edf3;
+}
+
+.driver-row__bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #2c7fb2, #1676a7);
+}
+
+.metric-card-v2--danger .driver-row__bar-fill {
+  background: linear-gradient(90deg, #d9534f, #b42318);
+}
+
+.driver-row__impact {
+  color: #183b58;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.remediation {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 7px 8px;
+  border: 1px dashed #c3d2de;
+  border-radius: 5px;
+  background: #f4f9fc;
+}
+
+.remediation__label {
+  color: #2c5d82;
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.remediation__best {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.remediation__move {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  color: #405568;
+  font-size: 10px;
+}
+
+.remediation__move strong {
+  color: #183b58;
+}
+
+.remediation__move .bp5-icon {
+  color: #1676a7;
+}
+
+.remediation__after {
+  color: #5a6e80;
+  font-size: 9px;
+}
+
+.remediation__after strong {
+  color: var(--success);
+}
+
+.remediation__actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.remediation__partial {
+  margin: 0;
+  color: #8a6d3b;
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.metric-card-v2__actions {
+  display: flex;
+  gap: 6px;
+}
+
+.dialog-warning {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-top: 10px;
+  padding: 9px 11px;
+  border: 1px solid #e7b9b5;
+  border-radius: 5px;
+  background: #fffafa;
+  color: #8a2a22;
+  font-size: 10px;
+  line-height: 1.55;
 }

@@ -4,11 +4,10 @@ import type {
   Placement,
   Port,
   Slot,
-  StabilityResult,
   StowageConflict,
 } from '../types/shipping';
 
-const INCOMPATIBLE: Record<string, string[]> = {
+export const INCOMPATIBLE: Record<string, string[]> = {
   '1.1': ['1.1', '2.1', '3', '4.1', '5.1', '6.1', '8'],
   '2.1': ['1.1', '5.1'],
   '3': ['1.1', '5.1', '8'],
@@ -23,7 +22,6 @@ export function validateStowage(
   containers: Container[],
   bays: Bay[],
   ports: Port[],
-  stability: StabilityResult,
 ): StowageConflict[] {
   const conflicts: StowageConflict[] = [];
   const containerMap = new Map(containers.map((container) => [container.id, container]));
@@ -34,14 +32,15 @@ export function validateStowage(
   placements.forEach((placement) => {
     const container = containerMap.get(placement.containerId);
     if (!container) return;
-    if (container.grossWeight > 30.48) {
+    const maxGross = container.type.startsWith('40') ? 36 : 30.48;
+    if (container.grossWeight > maxGross) {
       conflicts.push({
         id: `overweight:${placement.id}`,
         type: 'overweight',
         severity: 'danger',
         slot: slotOf(placement),
         containerIds: [container.id],
-        title: `${container.number} 超过 30.48 t 限重`,
+        title: `${container.number} 超过 ${maxGross} t 限重`,
         detail: `贝位 ${placement.bayId} / 排 ${placement.row} / 层 ${placement.tier} 的箱重为 ${container.grossWeight.toFixed(2)} t。`,
         suggestion: '将重箱调至下层或更换轻箱，并复核局部甲板强度。',
       });
@@ -147,22 +146,6 @@ export function validateStowage(
           suggestion: '至少错开一个贝位、两排或两层，并复核 IMDG 隔离表。',
         });
       }
-    }
-  }
-
-  if (stability.status === 'danger') {
-    const dangerIssue = stability.issues.find((issue) => issue.severity === 'danger');
-    if (dangerIssue) {
-      conflicts.push({
-        id: `stability:${dangerIssue.metric}`,
-        type: 'stability',
-        severity: 'danger',
-        slot: { bayId: 2, row: 1, tier: 1 },
-        containerIds: [],
-        title: `稳性指标异常：${dangerIssue.metric.toUpperCase()}`,
-        detail: dangerIssue.message,
-        suggestion: '先暂停新增装载，按稳性面板提示调整重量纵向或横向分布。',
-      });
     }
   }
 
